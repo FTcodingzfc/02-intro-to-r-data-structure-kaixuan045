@@ -1,0 +1,153 @@
+---
+title: "jingong251 huangkaixuan zuoyesi"
+output: html_document
+date: "2025-11-25"
+---
+#1.data.table 包：R 中处理结构化数据的高性能包大数据快速筛选、分组统计、表连接等；
+#联系：均为二维行列结构，dt 兼容数据框操作；
+#区别：dt 语法更简洁、速度更快、支持高效索引、原地修改
+as.data.table()#数据框→dt
+```{r}
+library(data.table)
+data(mtcars) 
+dt_mtcars <- as.data.table(mtcars) 
+setDF(dt_mtcars) 
+```
+#2.fread() 支持格式：CSV、TSV、txt
+fwrite() #保存到外部：
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+fwrite(dt_mtcars, "mtcars.csv")
+dt_read <- fread("mtcars.csv")
+```
+#3.i：行筛选、排序
+#j：选列、新增列、统计计算
+#by：按列分组
+#i→by→j
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+# i筛选mpg>20行 + by按cyl分组 + j计算hp均值
+dt_mtcars[mpg>20, .(hp_mean=mean(hp)), by=cyl]
+```
+#4.直接写变量名即可引用
+library(data.table)
+dt <- as.data.table(mtcars)
+dt[, x := mpg + cyl]
+```{r}
+library(data.table)
+dt <- as.data.table(mtcars)
+dt[, x <- mpg + cyl]
+dt[, x := mpg + cyl]
+```
+#5.
+dt[1:3] #取第1-3行
+dt[, 1:2] # 选前2列
+df[, 1:2]  #data.frame选前两列
+data.frame当中的列筛
+#选方式可以用在data.table
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+df_mtcars <- mtcars
+# dt行筛选（逻辑向量）
+dt_mtcars[mpg>20 & cyl==4]
+# dt列筛选（兼容df语法）
+dt_mtcars[, c("mpg", "cyl")]
+# df列筛选
+df_mtcars[, 1:2]
+```
+#6..() list()的简写
+#在data.table 的j位置直接写列名，或用[[列名]]
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+dt_mpg <- dt_mtcars[, .(mpg)]  # 保留data.table
+vec_mpg <- dt_mtcars[, mpg]    # 生成向量
+```
+#7.在 data.table 的i位置用order()函数。默认升序，变量名前加“-”降序
+#仅i位置能直接做排序，可以同时进行筛选和排序操作
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+# i中筛选(mpg>20)+排序(cyl升序、disp降序)
+dt_mtcars[mpg>20][order(cyl, -disp)]
+```
+#8.:=（赋值运算符）
+```{r}
+library(data.table)
+dt <- as.data.table(mtcars)
+dt[, c("mpg_sq", "hp_half") := .(mpg^2, hp/2)] # 新增2列
+```
+#9.按1个或多个列的取值将数据分成若干组
+#by	keyby
+#by仅分组, keyby分组且自动升序排序
+#.()指定多个分组变量，指定位置用sum()对目标列求和
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+# 按cyl、gear分组，组内求hp总和+disp总和
+dt_mtcars[, `:=`(hp_2 = hp*2)][, .(hp_sum=sum(hp), hp2_sum=sum(hp_2)), by=.(cyl, gear)]
+```
+#10.先在i位置筛选行，再用by分组计算，最后对分组结果二次筛选
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+# 筛mpg>20行→按cyl/gear分组,求hp和,筛hp和>100的组
+dt_mtcars[mpg>20, .(hp_sum=sum(hp)), by=.(cyl, gear)][hp_sum>100]
+```
+#11. .SD是data.table内置变量,代表每个分组的子集数据
+#按by变量拆分，每个分组对应一个.SD
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+# 按cyl分组，取每组前2行
+dt_mtcars[, .SD[1:2], by = cyl]
+
+```
+#12..N 是 data.table 内置变量，代表当前分组的行数 / 观测数
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+dt_mtcars[, .N]                # 未分组：统计总行数
+dt_mtcars[, .(count=.N), by=cyl] # 分组：按cyl统计每组行数
+```
+#13.链式操作,多步骤数据处理
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+dt_mtcars[vs==1 & am==1][, .(mpg_aver=mean(mpg), cyl_aver=mean(cyl))]
+```
+#14.双变量 join 语法：DT1[DT2, on = .(v1,v2)]或先setkey再DT1[DT2]
+#区别：前者直接指定连接键,不排序.后者先设主键,无需写on，效率更高。
+#15.rbindlist()
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+dt_mtcars_plus1 <- dt_mtcars[, lapply(.SD, function(x) x+1)]
+dt_combined <- rbindlist(list(dt_mtcars, dt_mtcars_plus1))
+```
+#16.melt：宽表转长表，将多列特征整合为两列.
+#cast：长表转回宽表，重新拆分为多列。
+```{r}
+library(data.table)
+dt_mtcars <- as.data.table(mtcars)
+dt_mtcars[, rn := .I]  
+dt_melt <- melt(dt_mtcars, id.vars = "rn", measure.vars = c("cyl", "mpg"))
+dt_cast <- dcast(dt_melt, rn ~ variable, value.var = "value")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
